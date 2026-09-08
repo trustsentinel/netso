@@ -84,6 +84,18 @@ func (r *Registry) Take(network, name string) (Peer, any, bool) {
 	return rec.peer, rec.conn, true
 }
 
+// Networks returns each network and how many peers are currently on it (for
+// monitoring/status).
+func (r *Registry) Networks() map[string]int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	counts := make(map[string]int, len(r.m))
+	for network, peers := range r.m {
+		counts[network] = len(peers)
+	}
+	return counts
+}
+
 // List returns the peers on a network, sorted by name (for discovery).
 func (r *Registry) List(network string) []Peer {
 	r.mu.Lock()

@@ -28,6 +28,18 @@ func TestListSortedAndIsolatedByNetwork(t *testing.T) {
 	}
 }
 
+func TestNetworksCounts(t *testing.T) {
+	r := New()
+	r.Add(Peer{Network: "prod", Name: "web"}, 1)
+	r.Add(Peer{Network: "prod", Name: "db"}, 2)
+	r.Add(Peer{Network: "edge", Name: "sensor"}, 3)
+
+	nets := r.Networks()
+	if nets["prod"] != 2 || nets["edge"] != 1 || len(nets) != 2 {
+		t.Fatalf("networks = %v, want {prod:2, edge:1}", nets)
+	}
+}
+
 func TestTakeRemovesAndReturns(t *testing.T) {
 	r := New()
 	r.Add(Peer{Network: "n", Name: "a", PubKey: "k"}, 42)

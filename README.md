@@ -5,7 +5,7 @@ per-peer identity, end-to-end (incl. group) encryption, and brokered shell acces
 to any peer from a browser or CLI.
 
 [![CI](https://github.com/trustsentinel/netso/actions/workflows/ci.yml/badge.svg)](https://github.com/trustsentinel/netso/actions/workflows/ci.yml)
-`Status: Phase 1 (Go)` · `Design + working hub/agent/CLI` · part of [TrustSentinel](https://trustsentinel.eu)
+`Status: Phase 2 (Go)` · `hub/agent + CLI & browser access + monitoring` · part of [TrustSentinel](https://trustsentinel.eu)
 
 ## Overview
 netso connects heterogeneous peers — cloud VMs, on-prem hosts, and lightweight
@@ -44,9 +44,10 @@ building blocks:
 | Stealth (no open port until authenticated) | [stuk](https://github.com/trustsentinel/stuk) |
 | Fleet posture + P2P discovery research | [argos](https://github.com/trustsentinel/argos) |
 
-## Quick start (Phase 1)
-Phase 1 is implemented: a Go hub + agent + CLI, pairwise mutually-authenticated
-Noise, hub-coordinated discovery, and a brokered shell to a peer.
+## Quick start
+Implemented: a Go hub + agent + CLI, pairwise mutually-authenticated Noise,
+hub-coordinated discovery, a brokered shell to a peer from the **CLI or a
+browser**, and a monitoring endpoint.
 
 ```bash
 # containerized end-to-end demo (hub + two peers + a client)
@@ -56,7 +57,7 @@ cd deploy/compose && docker compose build && docker compose run --rm e2e && dock
 ./smoke.sh
 ```
 
-Using the pieces directly:
+CLI:
 ```bash
 netso keygen -identity ~/.netso/id                          # a client identity
 netso-hub -addr :8443                                       # the hub
@@ -67,18 +68,34 @@ netso ssh   -hub http://hub:8443 -network prod -peer web \  # brokered shell
             -identity ~/.netso/id
 ```
 
+Browser access — the same Go Noise client compiled to WebAssembly + xterm.js:
+```bash
+make web                    # build web/netso.wasm
+./browser-demo.sh           # hub (serving web/) + two peers; prints a URL
+```
+Open the URL, **List peers**, pick one, **Connect** — a shell in the browser. Serve
+it in production with `netso-hub -webdir web`.
+
+Monitoring: `GET /status` returns peers per network, live session count, and a
+recent-session audit log.
+
 ## Layout
-- `cmd/netso-hub` — control plane: registry, discovery (`/peers`), relay (`/connect`)
+- `cmd/netso-hub` — control plane: registry, discovery (`/peers`), relay (`/connect`), monitoring (`/status`), serves the browser client
 - `cmd/netso-agent` — peer agent: dials out, registers, serves a PTY shell over Noise
 - `cmd/netso` — client CLI: `keygen`, `peers`, `ssh`
+- `cmd/netso-wasm` + `web/` — the browser client (Go→WebAssembly + xterm.js)
 - `internal/secure` — Noise **IK** mutual-auth session + identities + enrollment (shared lineage with stk)
-- `internal/transport` — message-framed connection · `internal/shell` — PTY · `internal/registry` — networks + peers
+- `internal/registry` — networks + peers · `internal/audit` — session monitoring log
+- `internal/transport` — message-framed connection (websocket / browser / pipe) · `internal/shell` — PTY
 
 ## Status
-Phase 1 (above) builds, is unit-tested (`-race`), has a runnable Compose e2e, and
-GitHub Actions CI. The greenfield 2020 prototype was not preserved; later phases —
-browser access, SSI/DID identity, MLS group encryption, federated hubs, IoT agent —
-follow the roadmap in [docs/architecture.md](docs/architecture.md).
+Phases 1–2 build, are unit-tested (`-race`), verified in a real browser, have a
+runnable Compose e2e, and GitHub Actions CI. Done so far: hub/agent/CLI, pairwise
+Noise IK + enrollment, discovery, **CLI and browser access**, and **monitoring**
+(`/status`). The greenfield 2020 prototype was not preserved; later phases —
+SSI/DID identity, MLS group encryption, federated hubs, IoT agent, stealth
+(stuk) + fleet posture (argos) — follow the roadmap in
+[docs/architecture.md](docs/architecture.md).
 
 ## Recognition
 INCIBE National Cybersecurity Competition **2020 — Top 10** (Entrepreneurs track):

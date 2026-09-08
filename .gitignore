@@ -3,3 +3,4 @@
 /netso-hub
 /netso-agent
 *.test
+web/netso.wasm

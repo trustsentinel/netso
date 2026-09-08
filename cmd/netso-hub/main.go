@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/trustsentinel/netso/internal/audit"
 	"github.com/trustsentinel/netso/internal/registry"
 )
 
@@ -20,7 +21,8 @@ var upgrader = websocket.Upgrader{
 }
 
 type hub struct {
-	reg *registry.Registry
+	reg   *registry.Registry
+	audit *audit.Log
 }
 
 // /agent?network=X&name=Y&pubkey=B64 — a peer registers and waits to be brokered.
@@ -77,8 +79,20 @@ func (h *hub) handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 	agent := agentConn.(*websocket.Conn)
 	log.Printf("brokering client<->%s/%s (relaying ciphertext)", network, peerName)
+	session := h.audit.Start(network, peerName)
 	relay(client, agent)
+	h.audit.End(session)
 	log.Printf("session closed: %s/%s", network, peerName)
+}
+
+// GET /status — monitoring: peers per network, live sessions, recent sessions.
+func (h *hub) handleStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"networks":        h.reg.Networks(),
+		"active_sessions": h.audit.Active(),
+		"recent_sessions": h.audit.Recent(10),
+	})
 }
 
 func relay(a, b *websocket.Conn) {
@@ -106,17 +120,23 @@ func copyMsgs(dst, src *websocket.Conn, done chan struct{}) {
 
 func main() {
 	addr := flag.String("addr", ":8443", "listen address")
+	webdir := flag.String("webdir", "", "if set, serve the browser client (static files) from this directory at /")
 	flag.Parse()
 
-	h := &hub{reg: registry.New()}
+	h := &hub{reg: registry.New(), audit: audit.NewLog(100)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/agent", h.handleAgent)
 	mux.HandleFunc("/connect", h.handleConnect)
 	mux.HandleFunc("/peers", h.handlePeers)
+	mux.HandleFunc("/status", h.handleStatus)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+	if *webdir != "" {
+		mux.Handle("/", http.FileServer(http.Dir(*webdir)))
+		log.Printf("serving browser client from %s at /", *webdir)
+	}
 	log.Printf("netso-hub listening on %s", *addr)
 	log.Fatal(http.ListenAndServe(*addr, mux))
 }
