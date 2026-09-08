@@ -1,129 +1,77 @@
 # netso
 
-Secure connectivity **control plane** for peer networks — many networks, strong
-per-peer identity, end-to-end (incl. group) encryption, and brokered shell access
-to any peer from a browser or CLI.
+**Connect your machines and devices into private networks and get a secure shell
+to any of them — from a terminal or a browser — without opening a single port.**
 
 [![CI](https://github.com/trustsentinel/netso/actions/workflows/ci.yml/badge.svg)](https://github.com/trustsentinel/netso/actions/workflows/ci.yml)
-`Status: Phase 2 (Go)` · `hub/agent + CLI & browser access + monitoring` · part of [TrustSentinel](https://trustsentinel.eu)
+`Go` · self-hostable · part of [TrustSentinel](https://trustsentinel.eu)
 
-## Overview
-netso connects heterogeneous peers — cloud VMs, on-prem hosts, and lightweight
-IoT/edge devices across regions — into isolated, mutually-authenticated networks.
-A **hub** (single, or federated/decentralized hubs on your own infra) coordinates
-identity, discovery, policy, and monitoring, and relays only when peers can't
-connect directly — it never needs to see traffic in the clear.
+netso is a self-hostable control plane for secure peer networks — think Tailscale
+or Teleport, but with self-sovereign device identity (DIDs) and a browser shell
+built in. A **hub** coordinates the peers; every session is **end-to-end
+encrypted**, and the hub only ever relays ciphertext.
 
-Think **Tailscale/Teleport, but** with self-sovereign identity (DID/SSI — netso's
-2020 root), an agent small enough for constrained devices, **multiparty/group
-encryption** as a first-class mode, and access + posture monitoring built in.
+## How it works
 
-## Features (planned)
-- **Many networks** — isolated, per-network policy, region-aware.
-- **Autodiscovery** — pluggable strategies (hub-coordinated, mDNS, DHT/gossip,
-  rendezvous, cloud metadata, static).
-- **Mutual security** — every link mutually authenticated by peer identity; the
-  hub is untrusted for confidentiality.
-- **Multiparty encryption** — pairwise Noise sessions, plus MLS-based groups for
-  network-wide messaging (a peer talks to many peers at once).
-- **Brokered access** — SSH/Teleport-style shell to any peer from a browser or CLI.
-- **Monitoring** — peer/link health and fleet **security posture**.
+```mermaid
+flowchart LR
+  client["Client<br/>(CLI or browser)"]
+  hub["netso hub<br/>pairs peers · discovery · monitoring<br/>relays ciphertext only"]
+  peer["Peer / device<br/>(agent + shell)"]
 
-## Architecture
-Design of record: **[docs/architecture.md](docs/architecture.md)** — components,
-the encryption model (pairwise vs. group/MLS), discovery, deployment topologies,
-threat model, a phased roadmap, and the open design decisions.
-
-netso is largely a control-plane + integration effort over existing TrustSentinel
-building blocks:
-
-| Capability | Reuses |
-|---|---|
-| Brokered browser/CLI shell to peers | [stk](https://github.com/trustsentinel/stk) |
-| Encrypted mesh transport / Noise agent | [marshmallows](https://github.com/trustsentinel/marshmallows) |
-| Stealth (no open port until authenticated) | [stuk](https://github.com/trustsentinel/stuk) |
-| Fleet posture + P2P discovery research | [argos](https://github.com/trustsentinel/argos) |
-
-## Quick start
-Implemented: a Go hub + agent + CLI, pairwise mutually-authenticated Noise,
-hub-coordinated discovery, a brokered shell to a peer from the **CLI or a
-browser**, and a monitoring endpoint.
-
-```bash
-# containerized end-to-end demo (hub + two peers + a client)
-cd deploy/compose && docker compose build && docker compose run --rm e2e && docker compose down -v
-
-# or run it locally without Docker
-./smoke.sh
+  client -->|WebSocket| hub
+  peer -->|"dials out, no open port"| hub
+  client -.->|"end-to-end encrypted (Noise, mutually authenticated)"| peer
 ```
 
-CLI:
+- **Networks** group your peers and keep them isolated from one another.
+- **Peers dial out** to the hub, so a device needs no open inbound port to reach.
+- **You reach a peer by name** (`-peer web`) — never an IP address that might change.
+- **The hub can't read your sessions** — encryption is end-to-end, peer to peer.
+- **Identity is self-sovereign** — each device has a DID derived from its own key.
+
+## Try it
+
+The whole thing in Docker — a hub, two peers, and a client that opens a shell:
 ```bash
-netso keygen -identity ~/.netso/id                          # a client identity
-netso did    -identity ~/.netso/id                          # its self-sovereign DID + doc
-netso-hub -addr :8443                                       # the hub
-netso-agent -hub http://hub:8443 -network prod -name web \  # a peer
-            -authorized-clients clients.txt
-netso peers -hub http://hub:8443 -network prod              # discover peers
-netso ssh   -hub http://hub:8443 -network prod -peer web \  # brokered shell
-            -identity ~/.netso/id
+cd deploy/compose && docker compose build && docker compose run --rm e2e
 ```
 
-Browser access — the same Go Noise client compiled to WebAssembly + xterm.js:
+From the command line:
 ```bash
-make web                    # build web/netso.wasm
-./browser-demo.sh           # hub (serving web/) + two peers; prints a URL
+netso-hub   -addr :8443                                    # run a hub
+netso-agent -hub http://hub:8443 -network prod -name web   # join a device as "web"
+netso peers -hub http://hub:8443 -network prod             # see what's on the network
+netso ssh   -hub http://hub:8443 -network prod -peer web   # get a shell on it
 ```
-Open the URL, **List peers**, pick one, **Connect** — a shell in the browser. Serve
-it in production with `netso-hub -webdir web`.
 
-Monitoring: `GET /status` returns peers per network, live session count, and a
-recent-session audit log.
+In the browser: `make web && ./browser-demo.sh`, then open the printed URL, pick a
+peer, and Connect.
 
-## Kubernetes
-Run netso declaratively via **Custom Resources** — a `Hub`, `Network`, and `Peer`
-you `kubectl apply`, reconciled into Deployments/Services by the **netso operator**:
-```bash
-kubectl apply -f deploy/k8s/operator/crds.yaml
-kubectl apply -f deploy/k8s/operator/operator.yaml
-kubectl apply -f deploy/k8s/operator/samples/netso.yaml   # a hub + 2 peers on "prod"
-deploy/k8s/operator/kind-test.sh                          # one-command e2e on kind
-```
-See [`deploy/k8s/operator/`](deploy/k8s/operator/).
+On **Kubernetes**: `kubectl apply` a `Hub` and some `Peer` objects — an operator
+turns them into a running platform ([guide](deploy/k8s/operator/)).
 
-## Identity (SSI / DIDs)
-netso's original reason for being — self-sovereign identity. Each device gets a
-**`did:key`** derived from its Noise key, so **identity is the transport key**: a
-peer proves control of its DID by completing the handshake. A blockchain registry
-anchors DID documents and revocation for decentralized verification (off-chain
-cache at the edge for IoT/offline); the chosen anchor is **Hyperledger Indy
-(`did:indy`)** — decision made, implementation deferred. The tested core
-(`internal/did`: DID + document + resolver + in-memory registry stand-in) and
-`netso did` ship now. Design of record: **[docs/identity.md](docs/identity.md)**.
+## Documentation
+- **[Architecture](docs/architecture.md)** — components, the encryption model, discovery, deployment, and the roadmap.
+- **[Identity (SSI / DIDs)](docs/identity.md)** — self-sovereign device identity, anchored on a blockchain registry.
+- **[Docker demo](deploy/compose/)** · **[Kubernetes operator](deploy/k8s/operator/)** · **[Browser client](web/)**
 
 ## Layout
-- `cmd/netso-hub` — control plane: registry, discovery (`/peers`), relay (`/connect`), monitoring (`/status`), serves the browser client
-- `cmd/netso-agent` — peer agent: dials out, registers, serves a PTY shell over Noise
-- `cmd/netso` — client CLI: `keygen`, `peers`, `ssh`
-- `cmd/netso-wasm` + `web/` — the browser client (Go→WebAssembly + xterm.js)
-- `internal/secure` — Noise **IK** mutual-auth session + identities + enrollment (shared lineage with stk)
-- `internal/registry` — networks + peers · `internal/audit` — session monitoring log
-- `internal/did` — self-sovereign device identity (`did:key` + DID document + resolver)
-- `internal/transport` — message-framed connection (websocket / browser / pipe) · `internal/shell` — PTY
+`cmd/` the binaries (`netso-hub`, `netso-agent`, `netso` CLI, `netso-wasm` browser
+client) · `internal/` the pieces (`secure` Noise + identity, `transport`,
+`registry`, `audit`, `did`, `shell`) · `deploy/` Docker + Kubernetes · `operator/`
+the Kubernetes controller.
 
 ## Status
-Phases 1–2 build, are unit-tested (`-race`), verified in a real browser, have a
-runnable Compose e2e, and GitHub Actions CI. Done so far: hub/agent/CLI, pairwise
-Noise IK + enrollment, discovery, **CLI and browser access**, **monitoring**
-(`/status`), and the **SSI/DID identity core** (`did:key` bound to the device key;
-blockchain anchor next — see [docs/identity.md](docs/identity.md)). The greenfield
-2020 prototype was not preserved; later phases — the DID chain backend, MLS group
-encryption, federated hubs, IoT agent, stealth (stuk) + fleet posture (argos) —
-follow the roadmap in [docs/architecture.md](docs/architecture.md).
+Working today: hub + agents, CLI **and** browser access, discovery, monitoring,
+the SSI/DID identity core, and a Kubernetes operator — all unit-tested with a CI
+pipeline and end-to-end demos. Later phases (the blockchain DID anchor, group
+encryption, federated hubs, an IoT agent) are in the
+[architecture doc](docs/architecture.md).
 
 ## Recognition
-INCIBE National Cybersecurity Competition **2020 — Top 10** (Entrepreneurs track):
-a secure decentralized platform built on SSI and E2E encryption.
+INCIBE National Cybersecurity Competition **2020 — Top 10**: a secure decentralized
+platform built on self-sovereign identity and end-to-end encryption.
 
 ## License
 MIT — see [LICENSE](LICENSE).
