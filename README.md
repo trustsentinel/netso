@@ -60,6 +60,7 @@ cd deploy/compose && docker compose build && docker compose run --rm e2e && dock
 CLI:
 ```bash
 netso keygen -identity ~/.netso/id                          # a client identity
+netso did    -identity ~/.netso/id                          # its self-sovereign DID + doc
 netso-hub -addr :8443                                       # the hub
 netso-agent -hub http://hub:8443 -network prod -name web \  # a peer
             -authorized-clients clients.txt
@@ -79,6 +80,15 @@ it in production with `netso-hub -webdir web`.
 Monitoring: `GET /status` returns peers per network, live session count, and a
 recent-session audit log.
 
+## Identity (SSI / DIDs)
+netso's original reason for being — self-sovereign identity. Each device gets a
+**`did:key`** derived from its Noise key, so **identity is the transport key**: a
+peer proves control of its DID by completing the handshake. A blockchain registry
+anchors DID documents and revocation for decentralized verification (off-chain
+cache at the edge for IoT/offline). The tested core (`internal/did`: DID +
+document + resolver + in-memory registry stand-in) and `netso did` ship now; the
+chain backend is next. Design of record: **[docs/identity.md](docs/identity.md)**.
+
 ## Layout
 - `cmd/netso-hub` — control plane: registry, discovery (`/peers`), relay (`/connect`), monitoring (`/status`), serves the browser client
 - `cmd/netso-agent` — peer agent: dials out, registers, serves a PTY shell over Noise
@@ -86,16 +96,18 @@ recent-session audit log.
 - `cmd/netso-wasm` + `web/` — the browser client (Go→WebAssembly + xterm.js)
 - `internal/secure` — Noise **IK** mutual-auth session + identities + enrollment (shared lineage with stk)
 - `internal/registry` — networks + peers · `internal/audit` — session monitoring log
+- `internal/did` — self-sovereign device identity (`did:key` + DID document + resolver)
 - `internal/transport` — message-framed connection (websocket / browser / pipe) · `internal/shell` — PTY
 
 ## Status
 Phases 1–2 build, are unit-tested (`-race`), verified in a real browser, have a
 runnable Compose e2e, and GitHub Actions CI. Done so far: hub/agent/CLI, pairwise
-Noise IK + enrollment, discovery, **CLI and browser access**, and **monitoring**
-(`/status`). The greenfield 2020 prototype was not preserved; later phases —
-SSI/DID identity, MLS group encryption, federated hubs, IoT agent, stealth
-(stuk) + fleet posture (argos) — follow the roadmap in
-[docs/architecture.md](docs/architecture.md).
+Noise IK + enrollment, discovery, **CLI and browser access**, **monitoring**
+(`/status`), and the **SSI/DID identity core** (`did:key` bound to the device key;
+blockchain anchor next — see [docs/identity.md](docs/identity.md)). The greenfield
+2020 prototype was not preserved; later phases — the DID chain backend, MLS group
+encryption, federated hubs, IoT agent, stealth (stuk) + fleet posture (argos) —
+follow the roadmap in [docs/architecture.md](docs/architecture.md).
 
 ## Recognition
 INCIBE National Cybersecurity Competition **2020 — Top 10** (Entrepreneurs track):

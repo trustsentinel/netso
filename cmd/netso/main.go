@@ -7,6 +7,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 	"golang.org/x/term"
 
+	"github.com/trustsentinel/netso/internal/did"
 	"github.com/trustsentinel/netso/internal/hubclient"
 	"github.com/trustsentinel/netso/internal/secure"
 	"github.com/trustsentinel/netso/internal/transport"
@@ -29,6 +31,8 @@ func main() {
 	switch os.Args[1] {
 	case "keygen":
 		cmdKeygen(os.Args[2:])
+	case "did":
+		cmdDID(os.Args[2:])
 	case "peers":
 		cmdPeers(os.Args[2:])
 	case "ssh":
@@ -39,8 +43,38 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: netso <keygen|peers|ssh> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: netso <keygen|did|peers|ssh> [flags]")
 	os.Exit(2)
+}
+
+// cmdDID prints the device's self-sovereign identity: its did:key (derived from
+// its Noise key) and DID document. This is the identifier that gets anchored in
+// the (blockchain) registry for decentralized resolution and revocation.
+func cmdDID(args []string) {
+	fs := flag.NewFlagSet("did", flag.ExitOnError)
+	identity := fs.String("identity", "", "identity file (created on first use)")
+	priv := fs.String("key", "", "base64 static private key (with -pubkey)")
+	pub := fs.String("pubkey", "", "base64 static public key (with -key)")
+	docOnly := fs.Bool("doc", false, "print only the DID document JSON")
+	_ = fs.Parse(args)
+
+	kp, err := secure.ResolveIdentity(*identity, *priv, *pub)
+	if err != nil {
+		log.Fatal(err)
+	}
+	id, err := did.FromX25519(kp.Public)
+	if err != nil {
+		log.Fatal(err)
+	}
+	doc, err := did.NewDocument(kp.Public)
+	if err != nil {
+		log.Fatal(err)
+	}
+	out, _ := json.MarshalIndent(doc, "", "  ")
+	if !*docOnly {
+		fmt.Println(id)
+	}
+	fmt.Println(string(out))
 }
 
 func cmdKeygen(args []string) {
