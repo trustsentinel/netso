@@ -4,3 +4,7 @@
 /netso-agent
 *.test
 web/netso.wasm
+
+# operator build artifacts
+/operator/operator
+/operator/netso-operator

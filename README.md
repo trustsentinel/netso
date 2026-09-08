@@ -80,6 +80,17 @@ it in production with `netso-hub -webdir web`.
 Monitoring: `GET /status` returns peers per network, live session count, and a
 recent-session audit log.
 
+## Kubernetes
+Run netso declaratively via **Custom Resources** — a `Hub`, `Network`, and `Peer`
+you `kubectl apply`, reconciled into Deployments/Services by the **netso operator**:
+```bash
+kubectl apply -f deploy/k8s/operator/crds.yaml
+kubectl apply -f deploy/k8s/operator/operator.yaml
+kubectl apply -f deploy/k8s/operator/samples/netso.yaml   # a hub + 2 peers on "prod"
+deploy/k8s/operator/kind-test.sh                          # one-command e2e on kind
+```
+See [`deploy/k8s/operator/`](deploy/k8s/operator/).
+
 ## Identity (SSI / DIDs)
 netso's original reason for being — self-sovereign identity. Each device gets a
 **`did:key`** derived from its Noise key, so **identity is the transport key**: a

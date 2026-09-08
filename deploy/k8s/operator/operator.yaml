@@ -1,0 +1,72 @@
+# The netso operator: namespace, RBAC, and the controller Deployment.
+# Apply crds.yaml first, then this.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netso-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: netso-operator
+  namespace: netso-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: netso-operator
+rules:
+  - apiGroups: ["netso.trustsentinel.eu"]
+    resources: [hubs, peers, networks]
+    verbs: [get, list, watch, update, patch]
+  - apiGroups: ["netso.trustsentinel.eu"]
+    resources: [hubs/status, peers/status, networks/status]
+    verbs: [get, update, patch]
+  - apiGroups: ["apps"]
+    resources: [deployments]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [services]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: netso-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: netso-operator
+subjects:
+  - kind: ServiceAccount
+    name: netso-operator
+    namespace: netso-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netso-operator
+  namespace: netso-system
+  labels: { app.kubernetes.io/name: netso-operator }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: netso-operator }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: netso-operator }
+    spec:
+      serviceAccountName: netso-operator
+      containers:
+        - name: operator
+          image: netso-operator:local
+          imagePullPolicy: IfNotPresent
+          args: ["-netso-image=netso:local"] # image the operator deploys for Hubs/Peers
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 65532
+            capabilities: { drop: ["ALL"] }

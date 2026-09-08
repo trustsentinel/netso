@@ -35,6 +35,20 @@ jobs:
           go-version: "1.25"
       - run: GOOS=js GOARCH=wasm go build -o /tmp/netso.wasm ./cmd/netso-wasm
 
+  operator:
+    name: operator build + vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: build + vet the operator module
+        working-directory: operator
+        run: |
+          go build ./...
+          go vet ./...
+
   security:
     name: govulncheck + gosec
     runs-on: ubuntu-latest

@@ -1,0 +1,30 @@
+# Declare a netso platform with custom objects. The operator turns these into a
+# hub Deployment+Service and two agent Deployments joined to the "prod" network.
+apiVersion: netso.trustsentinel.eu/v1alpha1
+kind: Hub
+metadata:
+  name: main
+spec: {} # image + replicas defaulted by the operator
+---
+apiVersion: netso.trustsentinel.eu/v1alpha1
+kind: Network
+metadata:
+  name: prod
+spec:
+  description: Production peers
+---
+apiVersion: netso.trustsentinel.eu/v1alpha1
+kind: Peer
+metadata:
+  name: peer-a
+spec:
+  hubRef: main
+  network: prod
+---
+apiVersion: netso.trustsentinel.eu/v1alpha1
+kind: Peer
+metadata:
+  name: peer-b
+spec:
+  hubRef: main
+  network: prod

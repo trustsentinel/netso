@@ -1,0 +1,130 @@
+# netso Custom Resource Definitions — the API for running netso in Kubernetes.
+# Apply these, then `kubectl apply` Hub / Network / Peer objects; the netso
+# operator reconciles them into Deployments/Services.
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: hubs.netso.trustsentinel.eu
+spec:
+  group: netso.trustsentinel.eu
+  scope: Namespaced
+  names:
+    kind: Hub
+    plural: hubs
+    singular: hub
+    shortNames: [nhub]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - { name: Ready, type: boolean, jsonPath: .status.ready }
+        - { name: Service, type: string, jsonPath: .status.service }
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                image:
+                  type: string
+                  description: netso container image (defaults to the operator's configured image)
+                replicas:
+                  type: integer
+                  minimum: 0
+                  default: 1
+            status:
+              type: object
+              properties:
+                ready: { type: boolean }
+                service: { type: string }
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: networks.netso.trustsentinel.eu
+spec:
+  group: netso.trustsentinel.eu
+  scope: Namespaced
+  names:
+    kind: Network
+    plural: networks
+    singular: network
+    shortNames: [nnet]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - { name: Peers, type: integer, jsonPath: .status.peers }
+        - { name: Description, type: string, jsonPath: .spec.description }
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                description: { type: string }
+            status:
+              type: object
+              properties:
+                peers: { type: integer }
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: peers.netso.trustsentinel.eu
+spec:
+  group: netso.trustsentinel.eu
+  scope: Namespaced
+  names:
+    kind: Peer
+    plural: peers
+    singular: peer
+    shortNames: [npeer]
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - { name: Network, type: string, jsonPath: .spec.network }
+        - { name: Hub, type: string, jsonPath: .spec.hubRef }
+        - { name: Ready, type: boolean, jsonPath: .status.ready }
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required: [hubRef]
+              properties:
+                hubRef:
+                  type: string
+                  description: name of a Hub in the same namespace to join
+                network:
+                  type: string
+                  default: default
+                peerName:
+                  type: string
+                  description: netso peer name (defaults to the object's name)
+                image:
+                  type: string
+                shell:
+                  type: string
+                  default: /bin/sh
+                authorizedClientsSecret:
+                  type: string
+                  description: optional Secret (key authorized_clients) enrolling allowed client keys
+            status:
+              type: object
+              properties:
+                ready: { type: boolean }
