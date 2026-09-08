@@ -1,0 +1,61 @@
+# netso Phase 1 end-to-end demo: a hub, two peers (peerA/peerB) on network "prod",
+# and a client that discovers them and opens a brokered, mutually-authenticated
+# shell. The client is enrolled (its key in the agents' authorized-clients file);
+# the hub only relays ciphertext.
+
+x-netso-build: &build
+  context: ../..
+  dockerfile: deploy/compose/Dockerfile
+
+services:
+  # One-shot: create the client identity and enroll it (authorized-clients).
+  keygen:
+    build: *build
+    command:
+      - sh
+      - -c
+      - netso keygen -identity /state/client.id > /state/client.pub && cp /state/client.pub /state/authorized_clients && ls -l /state
+    volumes:
+      - state:/state
+
+  hub:
+    build: *build
+    command: ["netso-hub", "-addr", ":8443"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8443/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  agent-a:
+    build: *build
+    depends_on:
+      keygen: {condition: service_completed_successfully}
+      hub: {condition: service_healthy}
+    volumes:
+      - state:/state:ro
+    command: ["netso-agent", "-hub", "http://hub:8443", "-network", "prod", "-name", "peerA", "-authorized-clients", "/state/authorized_clients"]
+
+  agent-b:
+    build: *build
+    depends_on:
+      keygen: {condition: service_completed_successfully}
+      hub: {condition: service_healthy}
+    volumes:
+      - state:/state:ro
+    command: ["netso-agent", "-hub", "http://hub:8443", "-network", "prod", "-name", "peerB", "-authorized-clients", "/state/authorized_clients"]
+
+  e2e:
+    build: *build
+    depends_on:
+      keygen: {condition: service_completed_successfully}
+      hub: {condition: service_healthy}
+      agent-a: {condition: service_started}
+      agent-b: {condition: service_started}
+    volumes:
+      - state:/state:ro
+      - ./test-e2e.sh:/test-e2e.sh:ro
+    command: ["sh", "/test-e2e.sh"]
+
+volumes:
+  state:
