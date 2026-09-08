@@ -58,21 +58,40 @@ it by an enrollment service / hub.
 5. **Revoke / rotate** — a registry status update removes the device on the next
    resolve or cache refresh.
 
-## DID method — the decision (open)
-The `did:key` above is the self-certifying *device identifier*; the **anchor
-method** is the open call. Candidates:
+## DID method — the decision: Hyperledger Indy (`did:indy`)
+
+**Chosen anchor: Hyperledger Indy, using `did:indy`.** Indy is SSI-native — DIDs,
+**AnonCreds verifiable credentials**, and **revocation registries** are all
+first-class on the ledger — which is the strongest fit for netso's SSI purpose,
+and its **permissioned-ledger** model aligns with netso's "hubs you operate"
+posture (you run the node pool; no public chain, no gas).
+
+Options considered:
 
 | Option | Fit | Trade-off |
 |---|---|---|
-| **`did:key` + an EVM registry** (did:ethr-style, on an L2/permissioned chain) | Recommended. Device stays `did:key`; a smart-contract registry anchors doc + status. Ties to the estate's Ethereum work (`eth-rlp`). | Need a contract + an EVM/L2 to run; gas/latency (mitigated by L2 + off-chain cache). |
-| **`did:ethr`** (the DID *is* an on-chain address) | Fully on-chain, mature tooling. | Ethereum-centric; key model differs from the Noise X25519 key. |
-| **Hyperledger Indy / `did:indy`** | SSI-native, built for exactly this; strong revocation + verifiable credentials. | Heaviest infra (a permissioned ledger to operate). |
-| **Sidetree / ION** (batched, Bitcoin/L1-anchored) | Scales to huge fleets, cheap per-DID. | Most complex to run. |
+| **Hyperledger Indy / `did:indy`** ✅ chosen | SSI-native: DIDs + AnonCreds VCs + revocation registries built in; permissioned, operator-run. | Heaviest infra — a Indy node pool to run; Indy signing keys are Ed25519 (see below). |
+| `did:key` + an EVM registry (did:ethr-style) | Lightest anchor; ties to the estate's Ethereum work (`eth-rlp`). | A contract + EVM/L2 to run; weaker native VC/revocation story. |
+| `did:ethr` | Fully on-chain, mature tooling. | Ethereum-centric; key model differs from the Noise key. |
+| Sidetree / ION | Scales cheaply to huge fleets. | Most complex to run. |
 
-**Recommendation:** device identity as `did:key` (already built, offline-friendly
-for IoT) + a small **EVM registry contract** as the blockchain anchor, deployable
-on a permissioned or L2 chain to keep cost/latency sane. The `Resolver` interface
-(below) hides the chain, so this is a backend swap, not a redesign.
+### How Indy relates to the `did:key` core already built
+- **`did:key` stays** as the device's *self-certifying, offline* identifier — no
+  ledger needed to simply *have* an identity (crucial for IoT).
+- At **enrolment**, an endorser anchors the device on the Indy pool as a
+  **`did:indy`** (a NYM transaction), with the device's keys in the DID document —
+  giving decentralized resolution, revocation registries, and AnonCreds
+  authorization credentials.
+- **Key model:** Indy ledger transactions are **Ed25519**-signed, while netso's
+  transport key is **X25519** (key agreement). So a `did:indy` device carries an
+  **Ed25519** verification key (authentication / ledger) *and* the **X25519** Noise
+  key as `keyAgreement`. The device authenticates the transport with the X25519 key
+  (the Noise handshake, as today); the Ed25519 key is its ledger identity.
+- The `Resolver` interface below is the seam: an Indy-backed resolver implements
+  it later; `MemoryAnchor` + `did:key` stand in until then.
+
+> Status: **decision made, implementation deferred** (design-only for now). No
+> Indy pool is stood up yet; the tested in-memory core is what runs today.
 
 ## Authorization (beyond identity)
 Identity says *who*; authorization says *what*. Two layers:
@@ -90,13 +109,17 @@ Built and tested in this repo (`internal/did`, no chain required yet):
   (verify key against DID, then check the registry / revocation).
 - CLI: `netso did -identity <file>` prints a device's DID + DID document.
 
-**Next:** implement `Resolver` against a real blockchain registry (the chosen
-method above); have the agent register its DID at enrolment and the hub/peer verify
-via `did.Authorized` in place of raw pinned-key discovery; add an off-chain cache.
+**Next (deferred — design-only for now):** stand up a Hyperledger **Indy** node
+pool; implement `Resolver` against it (`did:indy`); have an endorser anchor a
+device's DID at enrolment; have the hub/peer verify via `did.Authorized` in place
+of raw pinned-key discovery; add an off-chain resolver cache for IoT/offline.
 
 ## Open decisions
-1. **Anchor method / chain** — EVM registry (recommended) vs did:ethr vs Indy vs ION.
-2. **Public vs permissioned / L2** — cost, latency, and who runs the chain.
-3. **Verifiable credentials** — adopt W3C VCs for authorization, or keep
-   membership-in-registry for now?
-4. **Org identities** — `did:web` for organisations/hubs alongside `did:key` for devices?
+1. ~~Anchor method~~ — **decided: Hyperledger Indy / `did:indy`** (above).
+2. **Indy pool topology** — how many nodes, who are the stewards/endorsers, and
+   how it maps onto netso's federated-hub model.
+3. **Device key handling** — issue a per-device **Ed25519** ledger key alongside
+   the X25519 Noise key, and where enrolment signing happens (device vs endorser).
+4. **Authorization** — model access with **AnonCreds verifiable credentials**, or
+   start with plain network-membership on the ledger?
+5. **Org identities** — `did:web` for organisations/hubs alongside device DIDs?

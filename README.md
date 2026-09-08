@@ -85,9 +85,10 @@ netso's original reason for being — self-sovereign identity. Each device gets 
 **`did:key`** derived from its Noise key, so **identity is the transport key**: a
 peer proves control of its DID by completing the handshake. A blockchain registry
 anchors DID documents and revocation for decentralized verification (off-chain
-cache at the edge for IoT/offline). The tested core (`internal/did`: DID +
-document + resolver + in-memory registry stand-in) and `netso did` ship now; the
-chain backend is next. Design of record: **[docs/identity.md](docs/identity.md)**.
+cache at the edge for IoT/offline); the chosen anchor is **Hyperledger Indy
+(`did:indy`)** — decision made, implementation deferred. The tested core
+(`internal/did`: DID + document + resolver + in-memory registry stand-in) and
+`netso did` ship now. Design of record: **[docs/identity.md](docs/identity.md)**.
 
 ## Layout
 - `cmd/netso-hub` — control plane: registry, discovery (`/peers`), relay (`/connect`), monitoring (`/status`), serves the browser client
