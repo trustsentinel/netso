@@ -73,5 +73,15 @@ encryption, federated hubs, an IoT agent) are in the
 INCIBE National Cybersecurity Competition **2020 — Top 10**: a secure decentralized
 platform built on self-sovereign identity and end-to-end encryption.
 
+## TrustSentinel
+Part of [TrustSentinel](https://trustsentinel.eu) — secure connectivity and
+network-intelligence tooling by Álvaro López.
+
+- **[netso](https://github.com/trustsentinel/netso)** — secure-networking platform (SSI + end-to-end encryption)  ·  _this repo_
+- **[stk](https://github.com/trustsentinel/stk)** — browser-based remote shell broker
+- **[stuk](https://github.com/trustsentinel/stuk)** — SSH access gating (port-knock + MFA)
+- **[argos](https://github.com/trustsentinel/argos)** — P2P blockchain network scanning
+- **[eth-rlp](https://github.com/trustsentinel/eth-rlp)** — RLP codec for Ethereum discv4
+
 ## License
 MIT — see [LICENSE](LICENSE).
