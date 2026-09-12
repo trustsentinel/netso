@@ -6,6 +6,13 @@ to any of them — from a terminal or a browser — without opening a single por
 [![CI](https://github.com/trustsentinel/netso/actions/workflows/ci.yml/badge.svg)](https://github.com/trustsentinel/netso/actions/workflows/ci.yml)
 `Go` · self-hostable · part of [TrustSentinel](https://trustsentinel.eu)
 
+<p align="center">
+  <a href="https://www.incibe.es/"><img src="https://img.shields.io/badge/INCIBE-National_Cybersecurity_Competition_2020-a67c00?style=for-the-badge&labelColor=1f1b2e" alt="INCIBE National Cybersecurity Competition 2020 — Top 10"></a>
+</p>
+<p align="center">
+  <sub>🏆 <b>INCIBE National Cybersecurity Competition 2020 — Top 10</b> · a secure decentralized platform built on self-sovereign identity and end-to-end encryption.</sub>
+</p>
+
 netso is a self-hostable control plane for secure peer networks — think Tailscale
 or Teleport, but with self-sovereign device identity (DIDs) and a browser shell
 built in. A **hub** coordinates the peers; every session is **end-to-end
@@ -68,10 +75,6 @@ the SSI/DID identity core, and a Kubernetes operator — all unit-tested with a 
 pipeline and end-to-end demos. Later phases (the blockchain DID anchor, group
 encryption, federated hubs, an IoT agent) are in the
 [architecture doc](docs/architecture.md).
-
-## Recognition
-INCIBE National Cybersecurity Competition **2020 — Top 10**: a secure decentralized
-platform built on self-sovereign identity and end-to-end encryption.
 
 ## TrustSentinel
 Part of [TrustSentinel](https://trustsentinel.eu) — secure connectivity and
