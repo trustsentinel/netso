@@ -10,6 +10,6 @@ RUN set -eux; for c in netso-hub netso-agent netso; do \
       CGO_ENABLED=0 go build -o "/out/$c" "./cmd/$c"; \
     done
 
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache curl
 COPY --from=build /out/ /usr/local/bin/
